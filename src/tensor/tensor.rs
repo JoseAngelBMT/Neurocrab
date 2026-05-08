@@ -1,39 +1,11 @@
 use crate::tensor::error::TensorError;
+use crate::ops;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tensor<T> {
     data: Vec<T>,
     shape: Vec<usize>,
     strides: Vec<usize>,
-}
-
-
-macro_rules! impl_binary_op {
-    ($fn_name:ident, $trait:ident, $method:ident) => {
-        pub fn $fn_name(&self, other: &Self) -> Result<Self, TensorError>
-        where
-            T: std::ops::$trait<Output=T> + Clone,
-        {
-            if self.shape != other.shape {
-                return Err(TensorError::ShapeMismatchBinaryOp {
-                    lhs: self.shape.clone(),
-                    rhs: other.shape.clone(),
-                })
-            }
-
-            let data = self
-                .data
-                .iter()
-                .zip(other.data.iter())
-                .map(|(a, b)| a.clone().$method(b.clone()))
-                .collect();
-
-            Ok(Self {
-                data,
-                shape: self.shape.clone(),
-                strides: self.strides.clone(),
-            })
-        }
-    };
 }
 
 impl<T> Tensor<T> {
@@ -55,11 +27,15 @@ impl<T> Tensor<T> {
         })
     }
 
-    pub fn shape(&self) -> &[usize] {
+    pub fn data(&self) -> &Vec<T> {
+        &self.data
+    }
+
+    pub fn shape(&self) -> &Vec<usize> {
         &self.shape
     }
 
-    pub fn strides(&self) -> &[usize] {
+    pub fn strides(&self) -> &Vec<usize> {
         &self.strides
     }
 
@@ -112,10 +88,11 @@ impl<T> Tensor<T> {
 
     pub fn reshape(&self, new_shape: Vec<usize>) -> Result<Self, TensorError>
     where
-        T: Clone {
+        T: Clone,
+    {
         let new_num_elements = num_elements_from_shape(&new_shape);
 
-        if new_num_elements !=  self.num_elements() {
+        if new_num_elements != self.num_elements() {
             return Err(TensorError::InvalidReshape {
                 from: self.shape.clone(),
                 to: new_shape,
@@ -129,10 +106,38 @@ impl<T> Tensor<T> {
         })
     }
 
-    impl_binary_op!(add, Add, add);
-    impl_binary_op!(sub, Sub, sub);
-    impl_binary_op!(mul, Mul, mul);
-    impl_binary_op!(div, Div, div);
+}
+
+// Tensor operations
+impl<T> Tensor<T> {
+    pub fn add(&self, other: &Self) -> Result<Self, TensorError>
+    where
+        T: std::ops::Add<Output = T> + Clone,
+    {
+        ops::add(self, other)
+    }
+
+    pub fn sub(&self, other: &Self) -> Result<Self, TensorError>
+    where
+        T: std::ops::Sub<Output = T> + Clone,
+    {
+        ops::sub(self, other)
+    }
+
+    pub fn mul(&self, other: &Self) -> Result<Self, TensorError>
+    where
+        T: std::ops::Mul<Output = T> + Clone,
+    {
+        ops::mul(self, other)
+    }
+
+    pub fn div(&self, other: &Self) -> Result<Self, TensorError>
+    where
+        T: std::ops::Div<Output = T> + Clone,
+    {
+        ops::div(self, other)
+    }
+
 }
 
 
@@ -150,12 +155,11 @@ impl<T: Clone + Default> Tensor<T> {
     }
 }
 
-
-pub fn num_elements_from_shape(shape: &[usize]) -> usize {
+pub fn num_elements_from_shape(shape: &Vec<usize>) -> usize {
     shape.iter().product()
 }
 
-pub fn compute_contiguous_strides(shape: &[usize]) -> Vec<usize> {
+pub fn compute_contiguous_strides(shape: &Vec<usize>) -> Vec<usize> {
     if shape.is_empty() {
         return vec![];
     }
@@ -238,7 +242,10 @@ mod tests {
         let b = Tensor::from_vec(vec![4, 3, 2, 1], vec![2, 2]).unwrap();
 
         let result = a.add(&b).unwrap();
-        assert_eq!(result, Tensor::from_vec(vec![5, 5, 5, 5], vec![2, 2]).unwrap());
+        assert_eq!(
+            result,
+            Tensor::from_vec(vec![5, 5, 5, 5], vec![2, 2]).unwrap()
+        );
     }
 
     #[test]
@@ -247,7 +254,10 @@ mod tests {
         let b = Tensor::from_vec(vec![1, 2, 3, 4], vec![2, 2]).unwrap();
 
         let result = a.sub(&b).unwrap();
-        assert_eq!(result, Tensor::from_vec(vec![4, 4, 4, 4], vec![2, 2]).unwrap());
+        assert_eq!(
+            result,
+            Tensor::from_vec(vec![4, 4, 4, 4], vec![2, 2]).unwrap()
+        );
     }
 
     #[test]
@@ -256,7 +266,10 @@ mod tests {
         let b = Tensor::from_vec(vec![4, 3, 2, 1], vec![2, 2]).unwrap();
 
         let result = a.mul(&b).unwrap();
-        assert_eq!(result, Tensor::from_vec(vec![4, 6, 6, 4], vec![2, 2]).unwrap());
+        assert_eq!(
+            result,
+            Tensor::from_vec(vec![4, 6, 6, 4], vec![2, 2]).unwrap()
+        );
     }
 
     #[test]
@@ -265,6 +278,9 @@ mod tests {
         let b = Tensor::from_vec(vec![4, 3, 2, 1], vec![2, 2]).unwrap();
 
         let result = a.div(&b).unwrap();
-        assert_eq!(result, Tensor::from_vec(vec![2, 2, 2, 2], vec![2, 2]).unwrap());
+        assert_eq!(
+            result,
+            Tensor::from_vec(vec![2, 2, 2, 2], vec![2, 2]).unwrap()
+        );
     }
 }
