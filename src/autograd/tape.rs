@@ -8,6 +8,8 @@ pub(crate) enum OpKind {
     Sub,
     Mul,
     Div,
+    Sum,
+    MatMul,
 }
 
 #[derive(Debug, Clone)]

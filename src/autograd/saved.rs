@@ -4,4 +4,5 @@ use crate::tensor::Tensor;
 pub(crate) enum SavedContext<T> {
     None,
     Tensors(Vec<Tensor<T>>),
+    InputShape(Vec<usize>),
 }

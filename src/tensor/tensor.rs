@@ -28,6 +28,23 @@ impl<T> Tensor<T> {
         })
     }
 
+    pub fn from_raw(data: Vec<T>, shape: Vec<usize>, strides: Vec<usize>) -> Result<Self, TensorError> {
+        let expected_shape = num_elements_from_shape(&shape);
+
+        if data.len() != expected_shape {
+            return Err(TensorError::ShapeMismatch {
+                expected: expected_shape,
+                actual: data.len(),
+            });
+        }
+
+        Ok(Self {
+            data,
+            shape,
+            strides,
+        })
+    }
+
     pub fn data(&self) -> &Vec<T> {
         &self.data
     }
@@ -106,6 +123,7 @@ impl<T> Tensor<T> {
             strides: compute_contiguous_strides(&new_shape),
         })
     }
+
 
 }
 
