@@ -1,5 +1,6 @@
 use crate::tensor::error::TensorError;
 use crate::ops;
+use num_traits::One;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tensor<T> {
@@ -138,13 +139,32 @@ impl<T> Tensor<T> {
         ops::div(self, other)
     }
 
+    pub fn negate(&self) -> Self
+    where
+        T: std::ops::Neg<Output = T> + Clone,
+    {
+        let data: Vec<T> = self.data.iter().map(|x| -x.clone()).collect();
+        Tensor::from_vec(data, self.shape.clone()).unwrap()
+    }
 }
 
 
-impl<T: Clone + Default> Tensor<T> {
+impl<T: Clone + Default + One> Tensor<T> {
     pub fn zeros(shape: Vec<usize>) -> Self {
         let num_elements = num_elements_from_shape(&shape);
         let data = vec![T::default(); num_elements];
+        let strides = compute_contiguous_strides(&shape);
+
+        Self {
+            data,
+            shape,
+            strides,
+        }
+    }
+
+    pub fn ones(shape: Vec<usize>) -> Self {
+        let num_elements = num_elements_from_shape(&shape);
+        let data = vec![T::one(); num_elements];
         let strides = compute_contiguous_strides(&shape);
 
         Self {
