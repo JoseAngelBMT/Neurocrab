@@ -1,5 +1,7 @@
 mod error;
 
+use num_traits::Float;
+use std::ops::{Add, Sub, Div, Mul};
 use crate::ops::error::OperationError;
 use crate::tensor::{Tensor, TensorError};
 
@@ -7,7 +9,7 @@ macro_rules! impl_binary_op {
     ($fn_name:ident, $trait:ident, $method:ident) => {
         pub fn $fn_name<T>(a: &Tensor<T>, b: &Tensor<T>) -> Result<Tensor<T>, TensorError>
         where
-            T: std::ops::$trait<Output = T> + Clone,
+            T: $trait<Output = T> + Clone,
         {
             if a.shape() != b.shape() {
                 return Err(TensorError::ShapeMismatchBinaryOp {
@@ -55,7 +57,7 @@ where
 
 pub fn matmul<T>(a: &Tensor<T>, b: &Tensor<T>) -> Result<Tensor<T>, OperationError>
 where
-    T: std::ops::Mul<Output = T> + std::ops::Add<Output = T> + Default + Clone,
+    T: Mul<Output = T> + Add<Output = T> + Default + Clone,
 {
     if a.shape()[1] != b.shape()[0] {
         return Err(OperationError::InvalidMatMulShape {
@@ -82,6 +84,45 @@ where
         }
     }
     Ok(Tensor::from_vec(data, vec![m, n]).unwrap())
+}
+
+pub fn relu<T>(a: &Tensor<T>) -> Tensor<T>
+where
+    T: PartialOrd + Default + Clone,
+{
+    let result = a
+        .data()
+        .iter()
+        .map(|x| {
+            if *x > T::default() {
+                x.clone()
+            } else {
+                T::default()
+            }
+        }) //max(0, x)
+        .collect();
+    Tensor::from_vec(result, a.shape().clone()).unwrap()
+}
+
+pub fn sigmoid<T>(a: &Tensor<T>) -> Tensor<T>
+where
+    T: Float
+{
+    let result: Vec<T> = a
+        .data()
+        .iter()
+        .map(|x| T::one()/(T::one()+(-*x).exp()))
+        .collect();
+    Tensor::from_vec(result, a.shape().clone()).unwrap()
+}
+
+pub fn mean<T>(a: &Tensor<T>) -> Tensor<T>
+where
+    T: Float + std::iter::Sum<T>,
+{
+    let n = T::from(a.num_elements()).unwrap();
+    let total: T = a.data().iter().cloned().sum();
+    Tensor::from_vec(vec![total / n], vec![]).unwrap()
 }
 
 #[cfg(test)]
@@ -126,5 +167,32 @@ mod tests {
         let b = Tensor::from_vec(vec![1, 2, 0, 0, 1, 2], vec![2, 3]).unwrap();
         let result = matmul(&a, &b);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn relu_forward() {
+        let a = Tensor::from_vec(vec![-2, 0, -1, 4], vec![2, 2]).unwrap();
+        let expected = Tensor::from_vec(vec![0, 0, 0, 4], vec![2, 2]).unwrap();
+        let result = relu(&a);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn mean_forward() {
+        let a = Tensor::from_vec(vec![10.0, 5.0, 7.0, 8.0], vec![2, 2]).unwrap();
+        let result = mean(&a);
+        assert_eq!(result.data(), &[7.5]);
+    }
+
+    #[test]
+    fn sigmoid_forward() {
+        let a = Tensor::from_vec(vec![-2.0, 0.0, 2.0, 5.0], vec![2, 2]).unwrap();
+        let result = sigmoid(&a);
+        let expected = vec![0.119, 0.5, 0.881, 0.993];
+
+        for (r, e) in result.data().iter().zip(expected.iter()) {
+            assert!((r - e).abs() < 1e-2);
+        }
     }
 }

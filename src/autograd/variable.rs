@@ -1,3 +1,4 @@
+use num_traits::Float;
 use crate::autograd::saved::SavedContext;
 use crate::autograd::tape::{OpKind, Tape};
 use crate::tensor::Tensor;
@@ -111,6 +112,63 @@ impl<T> Variable<T> {
             OpKind::MatMul,
             vec![self.id, other.id],
             SavedContext::Tensors(vec![self.tensor.clone(), other.tensor.clone()]),
+            result.shape().clone(),
+        );
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
+    pub fn mean(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Float + std::iter::Sum<T>
+    {
+        let result = crate::ops::mean(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Mean,
+            vec![self.id],
+            SavedContext::InputShape(self.tensor.shape().clone()),
+            result.shape().clone(),
+        );
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
+    pub fn relu(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Float + Default
+    {
+        let result = crate::ops::relu(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Relu,
+            vec![self.id],
+            SavedContext::Tensors(vec![self.tensor.clone()]),
+            result.shape().clone(),
+        );
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
+    pub fn sigmoid(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Float
+    {
+        let result = crate::ops::sigmoid(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Sigmoid,
+            vec![self.id],
+            SavedContext::Tensors(vec![result.clone()]),
             result.shape().clone(),
         );
         Variable {

@@ -10,6 +10,9 @@ pub(crate) enum OpKind {
     Div,
     Sum,
     MatMul,
+    Relu,
+    Sigmoid,
+    Mean,
 }
 
 #[derive(Debug, Clone)]
