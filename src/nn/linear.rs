@@ -19,7 +19,7 @@ impl Linear {
             .collect();
 
         let weight_tensor = Tensor::from_vec(data, vec![out_features, in_features]).unwrap();
-        let bias_tensor = Tensor::zeros(vec![out_features]);
+        let bias_tensor = Tensor::zeros(vec![1, out_features]);
 
         let weight = tape.variable(weight_tensor);
         let bias = tape.variable(bias_tensor);
@@ -29,5 +29,10 @@ impl Linear {
     pub fn forward(&self, input: &Variable<f32>, tape: &mut Tape<f32>) -> Variable<f32> {
         let weight_t = self.weight.transpose(tape);
         input.matmul(&weight_t, tape).add(&self.bias, tape)
+    }
+
+    pub fn register(&mut self, tape: &mut Tape<f32>) {
+        self.weight = tape.variable(self.weight.tensor.clone());
+        self.bias = tape.variable(self.bias.tensor.clone());
     }
 }

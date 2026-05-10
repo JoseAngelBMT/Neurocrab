@@ -49,6 +49,10 @@ impl<T> Tensor<T> {
         &self.data
     }
 
+    pub fn data_mut(&mut self) -> &mut Vec<T> {
+        &mut self.data
+    }
+
     pub fn shape(&self) -> &Vec<usize> {
         &self.shape
     }

@@ -68,4 +68,9 @@ impl<T> Tape<T> {
             requires_grad: true,
         }
     }
+
+    pub fn clear(&mut self) {
+        self.nodes.clear();
+        self.next_id = 0;
+    }
 }
