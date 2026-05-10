@@ -4,7 +4,7 @@ use crate::autograd::tape::{OpKind, Tape};
 use crate::autograd::variable::ValueId;
 use crate::ops::{matmul, transpose};
 use crate::tensor::Tensor;
-use num_traits::{Float, FromPrimitive};
+use num_traits::FromPrimitive;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub fn backward<T>(tape: &Tape<T>, loss_id: ValueId, initial_gradient: Tensor<T>) -> GradStore<T>
@@ -94,6 +94,7 @@ where
                         .unwrap();
                     vec![result.clone()]
                 }
+                OpKind::Transpose => vec![transpose(&grad_out)],
             };
             for (input, grad) in node.inputs.iter().zip(grads.into_iter()) {
                 grad_store.accumulate(input, grad);

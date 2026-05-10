@@ -13,6 +13,26 @@ pub struct Variable<T> {
 }
 
 impl<T> Variable<T> {
+
+    pub fn transpose(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Clone
+    {
+        let result = crate::ops::transpose(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Transpose,
+            vec![self.id],
+            SavedContext::Tensors(vec![self.tensor.clone()]),
+            result.shape().clone(),
+        );
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
     pub fn add(&self, other: &Self, tape: &mut Tape<T>) -> Variable<T>
     where
         T: std::ops::Add<Output = T> + Clone,

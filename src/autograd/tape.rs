@@ -13,6 +13,7 @@ pub(crate) enum OpKind {
     Relu,
     Sigmoid,
     Mean,
+    Transpose,
 }
 
 #[derive(Debug, Clone)]
