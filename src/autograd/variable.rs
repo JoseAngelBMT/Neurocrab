@@ -6,6 +6,7 @@ use crate::tensor::Tensor;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ValueId(pub usize);
 
+#[derive(Debug, Clone)]
 pub struct Variable<T> {
     pub id: ValueId,
     pub tensor: Tensor<T>,

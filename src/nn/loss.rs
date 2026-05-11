@@ -1,6 +1,5 @@
 use crate::autograd::tape::Tape;
 use crate::autograd::variable::Variable;
-use crate::tensor::Tensor;
 
 pub fn mse_loss(
     pred: &Variable<f32>,
