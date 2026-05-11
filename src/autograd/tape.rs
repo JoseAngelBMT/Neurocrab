@@ -46,17 +46,18 @@ impl<T> Tape<T> {
         saved_context: SavedContext<T>,
         output_shape: Vec<usize>,
     ) -> ValueId {
+        let id = ValueId(self.next_id);
         self.next_id +=  1;
 
         let node = Node {
             op: op_kind,
             inputs,
-            output: ValueId(self.next_id),
+            output: id,
             saved: saved_context,
             output_shape
         };
         self.nodes.push(node);
-        ValueId(self.next_id)
+        id
     }
 
     pub fn variable(&mut self, tensor: Tensor<T>) -> Variable<T> {
