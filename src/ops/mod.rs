@@ -1,9 +1,9 @@
 mod error;
 
-use num_traits::Float;
-use std::ops::{Add, Sub, Div, Mul};
 use crate::ops::error::OperationError;
 use crate::tensor::{Tensor, TensorError};
+use num_traits::Float;
+use std::ops::{Add, Div, Mul, Sub};
 
 macro_rules! impl_binary_op {
     ($fn_name:ident, $trait:ident, $method:ident) => {
@@ -106,12 +106,12 @@ where
 
 pub fn sigmoid<T>(a: &Tensor<T>) -> Tensor<T>
 where
-    T: Float
+    T: Float,
 {
     let result: Vec<T> = a
         .data()
         .iter()
-        .map(|x| T::one()/(T::one()+(-*x).exp()))
+        .map(|x| T::one() / (T::one() + (-*x).exp()))
         .collect();
     Tensor::from_vec(result, a.shape().clone()).unwrap()
 }
@@ -123,6 +123,40 @@ where
     let n = T::from(a.num_elements()).unwrap();
     let total: T = a.data().iter().cloned().sum();
     Tensor::from_vec(vec![total / n], vec![]).unwrap()
+}
+
+pub fn softmax<T>(a: &Tensor<T>) -> Tensor<T>
+where
+    T: Float + std::iter::Sum<T> + Clone,
+{
+    let c = *a.shape().last().unwrap();
+    let batch = a.num_elements() / c;
+
+    let mut data = Vec::with_capacity(a.num_elements());
+    for b in 0..batch {
+        let start = b * c;
+        let sum: T = (start..start + c).map(|i| a.data()[i].exp()).sum();
+        for i in start..start + c {
+            data.push(a.data()[i].exp() / sum);
+        }
+    }
+    Tensor::from_vec(data, a.shape().to_vec()).unwrap()
+}
+
+pub fn log<T>(a: &Tensor<T>) -> Tensor<T>
+where
+    T: Float,
+{
+    let result: Vec<T> = a.data().iter().map(|&x| x.ln()).collect();
+    Tensor::from_vec(result, a.shape().to_vec()).unwrap()
+}
+
+pub fn exp<T>(a: &Tensor<T>) -> Tensor<T>
+where
+    T: Float,
+{
+    let result: Vec<T> = a.data().iter().map(|&x| x.exp()).collect();
+    Tensor::from_vec(result, a.shape().to_vec()).unwrap()
 }
 
 #[cfg(test)]
@@ -190,6 +224,35 @@ mod tests {
         let a = Tensor::from_vec(vec![-2.0, 0.0, 2.0, 5.0], vec![2, 2]).unwrap();
         let result = sigmoid(&a);
         let expected = vec![0.119, 0.5, 0.881, 0.993];
+
+        for (r, e) in result.data().iter().zip(expected.iter()) {
+            assert!((r - e).abs() < 1e-2);
+        }
+    }
+
+    #[test]
+    fn softmax_forward() {
+        let a = Tensor::from_vec(vec![2.0, 1.0, 0.1], vec![1, 3]).unwrap();
+        let result = softmax(&a);
+        let expected = vec![0.66, 0.24, 0.1];
+
+        for (r, e) in result.data().iter().zip(expected.iter()) {
+            assert!((r - e).abs() < 1e-2);
+        }
+    }
+
+    #[test]
+    fn log_forward() {
+        let a = Tensor::from_vec(vec![1.0f64, std::f64::consts::E], vec![1, 2]).unwrap();
+        let result = log(&a);
+        assert_eq!(result.data(), &[0.0, 1.0]);
+    }
+
+    #[test]
+    fn exp_forward() {
+        let a = Tensor::from_vec(vec![0.0, 1.0, 5.0], vec![1, 3]).unwrap();
+        let result = exp(&a);
+        let expected = vec![1.0, 2.718, 148.413];
 
         for (r, e) in result.data().iter().zip(expected.iter()) {
             assert!((r - e).abs() < 1e-2);

@@ -5,6 +5,7 @@ use crate::autograd::variable::ValueId;
 use crate::ops::{matmul, transpose};
 use crate::tensor::Tensor;
 use num_traits::FromPrimitive;
+use num_traits::real::Real;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub fn backward<T>(tape: &Tape<T>, loss_id: ValueId, initial_gradient: Tensor<T>) -> GradStore<T>
@@ -19,7 +20,8 @@ where
         + std::cmp::PartialOrd
         + num_traits::One
         + Default
-        + Clone,
+        + Clone
+        + num_traits::Zero + num_traits::ToPrimitive,
 {
     let mut grad_store = GradStore::new();
     grad_store.set(&loss_id, initial_gradient);
@@ -38,8 +40,8 @@ where
                 OpKind::Mean => {
                     let shape = get_saved_shape(&node.saved);
                     let n = shape.iter().product();
-                    let n_t =  T::from_usize(n).unwrap();
-                    let value = grad_out.data()[0].clone() /n_t;
+                    let n_t = T::from_usize(n).unwrap();
+                    let value = grad_out.data()[0].clone() / n_t;
                     vec![Tensor::from_vec(vec![value; n], shape).unwrap()]
                 }
                 OpKind::Mul => {
@@ -95,6 +97,46 @@ where
                     vec![result.clone()]
                 }
                 OpKind::Transpose => vec![transpose(&grad_out)],
+                OpKind::Softmax => {
+                    let a: Tensor<T> = get_saved_tensor(&node.saved, 0);
+                    let c = a.shape().last().unwrap();
+
+                    let mut result = Vec::with_capacity(a.num_elements());
+                    let batch = a.num_elements() / c;
+                    for b in 0..batch {
+                        let start = b * c;
+                        let dot: T = a.data()[start..start + c]
+                            .iter()
+                            .zip(grad_out.data()[start..start + c].iter())
+                            .fold(T::zero(), |acc, (y, g)| acc + y.clone() * g.clone());
+                        for i in start..start + c {
+                            let grad_x =
+                                a.data()[i].clone() * (grad_out.data()[i].clone() - dot.clone());
+                            result.push(grad_x)
+                        }
+                    }
+                    vec![Tensor::from_vec(result, a.shape().clone()).unwrap()]
+                }
+                OpKind::Log => vec![grad_out.div(&get_saved_tensor(&node.saved, 0)).unwrap()],
+                OpKind::Exp => vec![grad_out.mul(&get_saved_tensor(&node.saved, 0)).unwrap()],
+                OpKind::CrossEntropy => {
+                    let probs = get_saved_tensor(&node.saved, 0);
+                    let targets = get_saved_tensor(&node.saved, 1);
+                    let c = *probs.shape().last().unwrap();
+                    let batch = targets.num_elements();
+                    let batch_t = T::from_usize(batch).unwrap();
+                    let one = T::one();
+
+                    let mut grad_data = probs.data().clone();
+                    for r in 0..batch {
+                        let t = targets.data()[r].to_usize().unwrap();
+                        grad_data[r * c + t] = grad_data[r * c + t].clone() - one.clone();
+                    }
+                    for g in &mut grad_data {
+                        *g = g.clone() / batch_t.clone();
+                    }
+                    vec![Tensor::from_vec(grad_data, probs.shape().clone()).unwrap()]
+                }
             };
             for (input, grad) in node.inputs.iter().zip(grads.into_iter()) {
                 grad_store.accumulate(input, grad);
@@ -269,5 +311,22 @@ mod tests {
         let initial_grad = Tensor::ones(vec![]);
         let grad_store = backward(&tape, y.id, initial_grad);
         assert_eq!(grad_store.get(&x_v.id).unwrap().data(), &vec![0.5, 0.5]);
+    }
+
+    #[test]
+    fn softmax_autograd() {
+        let mut tape = Tape::new();
+        let x = Tensor::from_vec(vec![2.0, 1.0, 0.0], vec![1, 3]).unwrap();
+        let x_v = tape.variable(x);
+        let y = x_v.softmax(&mut tape);
+
+        let grad_out = Tensor::from_vec(vec![1.0, 0.0, 0.0], vec![1, 3]).unwrap();
+        let grad_store = backward(&tape, y.id, grad_out);
+        let grad = grad_store.get(&x_v.id).unwrap().data();
+
+        let expected = [0.2227f32, -0.1628f32, -0.0599f32];
+        for i in 0..3 {
+            assert!((grad[i] - expected[i]).abs() < 1e-3);
+        }
     }
 }

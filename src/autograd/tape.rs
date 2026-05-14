@@ -14,6 +14,10 @@ pub(crate) enum OpKind {
     Sigmoid,
     Mean,
     Transpose,
+    Softmax,
+    Log,
+    Exp,
+    CrossEntropy,
 }
 
 #[derive(Debug, Clone)]

@@ -199,4 +199,63 @@ impl<T> Variable<T> {
         }
     }
 
+    pub fn softmax(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Float + std::iter::Sum<T>
+    {
+        let result = crate::ops::softmax(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Softmax,
+            vec![self.id],
+            SavedContext::Tensors(vec![result.clone()]),
+            result.shape().clone(),
+        );
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
+    pub fn log(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Float
+    {
+        let result = crate::ops::log(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Log,
+            vec![self.id],
+            SavedContext::Tensors(vec![self.tensor.clone()]),
+            result.shape().clone(),
+        );
+
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
+    pub fn exp(&self, tape: &mut Tape<T>) -> Variable<T>
+    where
+        T: Float
+    {
+        let result = crate::ops::exp(&self.tensor);
+
+        let id = tape.register(
+            OpKind::Exp,
+            vec![self.id],
+            SavedContext::Tensors(vec![result.clone()]),
+            result.shape().clone(),
+        );
+
+        Variable {
+            id,
+            tensor: result,
+            requires_grad: false,
+        }
+    }
+
 }
